@@ -1,0 +1,192 @@
+# 主城: 登录后点 inn 建筑, 再点旁边可能出现的宝箱
+#
+# 用法:
+#   python tools/city.py            # 干跑
+#   python tools/city.py --live     # 实跑
+#
+# 流程:
+#   ① 识别首页 —— 主城显示 my_room, 看板娘显示 heavenhold(点它可切回主城)
+#   ①-b 礼物任务: friend / 公会签到 / 商店金币
+#       (见文件末尾三个 *_gift_task; 只依赖主城底部栏, 与 inn 无关)
+#
+# 注意: 每日任务一键领取【不属于】上面这串主城任务 ——
+#   它是【收尾任务】, 必须排在扫荡 / 角斗场等全部任务之后 (奖励取决于
+#   前面各任务是否完成, 没做完就领不全). 配置在文件末尾 daily_receive_task,
+#   由 tools/daily.py 的 kind: daily_task 步骤在最后调用.
+#   ② 找 inn 建筑并点击
+#   ③ 在 inn 右侧找宝箱, 有就点, 没有就跳过
+#      (若点了 inn 后有界面弹出遮挡, 按返回键一次再找)
+
+# ---- 首页切换 ----
+# 右下角【同一位置】: 主城显示 my_room, 看板娘显示 heavenhold.
+# 在看板娘页面点这个图标即可切回主城.
+home_roi: [1788, 364, 75, 81]
+my_room: my_room
+heavenhold: heavenhold
+switch_wait: 1.5          # 切换后等待页面稳定
+
+# ---- inn 建筑 ----
+# 登录后在屏幕中央偏左上, 实测 box (786,400,120,93), 全屏匹配满分命中.
+inn: inn
+inn_roi: null             # null = 全屏找
+inn_settle: 1.2           # 按返回键后的等待(遮挡场景)
+# 宝箱【不是立即出现】的: 点完 inn 要停留一会儿再找, 否则会漏掉
+treasure_wait: 2.0
+
+# ---- 宝箱 ----
+# 在 inn 右边不远处 (实测宝箱 box (994,363,40,52), 位于 inn 右边缘再往右约 88px).
+# 检索区域按 inn 的位置【动态计算】, 这样即使主城被拖动过也跟着走.
+treasure_box: treasure_box
+treasure_gap_left: 0      # 从 inn 右边缘再往右多少像素开始找
+treasure_span: 400        # 检索区域宽度
+treasure_dy: 160          # 以 inn 中心高度为准, 上下各扩多少像素
+# 点完宝箱会弹奖励弹窗, 点空白处关掉 —— 沿用 pvp_popup.close_area (与角斗场弹窗同一处空白)
+treasure_close_wait: 0.8  # 点完宝箱到点空白之间的等待
+
+# 点 inn 后: 若主城的 menu / play 图标【消失了】= 进了建筑界面 → 再点一下退出
+# (正常情况点 inn 不会切界面, 此为兜底)
+inn_reclick:
+  enabled: true
+  wait: 1.0               # 点 inn 后等多久再判断图标是否还在
+  use_back: false         # false = 点空白区(222,333); true = 按返回键
+
+# ---- 建筑系列任务 (总开关) ----
+# enabled: true  → 执行下面这一系列建筑任务
+# enabled: false → 整段跳过
+# 说明: 建筑任务本身【待实现】, 当前只做"拖动主城 → 找到建筑"的导航部分.
+buildings:
+  enabled: true
+
+  # 拖动扫描的通用参数
+  scan:
+    # 步长要【足够小】: 否则建筑可能在相邻两帧里"各露一半",
+    # 哪一帧都不完整 → 模板匹配两次都失败, 直接漏掉该建筑.
+    # 判据: step 应 <= (检索区高度 - 建筑高度), 建筑越大步长越要小.
+    step: 200             # 每次滑动的像素距离(分步推进, 避免冲过头)
+    duration_ms: 300      # 滑动时长(固定, 让位移稳定)
+    settle_wait: 0.8      # 滑完等画面停稳
+    max_steps: 24         # 单方向最多滑几次; step 调小时要同步调大, 保证总行程够
+    roi: [200, 200, 1520, 700]   # 只在可玩区找建筑(避开边缘与 UI)
+    move_threshold: 1.0   # 帧差低于此值 = 画面没动 = 撞到边界
+
+  # 拖动方向: 【向上】(鼠标往上 = 视角往下), 沿途找 dispatch_outpost
+  path_first:
+    direction: up
+    targets:
+      - dispatch_outpost
+
+  # ---- caravanshop: 任务暂缓, 其搜索逻辑已从 city.py 移除 ----
+  # 恢复步骤:
+  #   1) 把 caravanshop 加回 path_first.targets, 放在 dispatch_outpost【之前】
+  #      (顺序 = "先遇到先做", caravanshop 优先)
+  #   2) 在 path_first 下加 early_stop_if: dispatch_outpost
+  #      —— 只遇到 outpost 就说明 caravan 在视角左上角, 提前停止转 45° 补搜
+  #   3) 放开下面 path_caravan
+  # path_caravan:
+  #   direction: down_right
+  #   targets:
+  #     - caravanshop
+
+# ---- dispatch_outpost 的任务 ----
+# 建筑上方【同一位置】会出现两种东西, 二选一:
+#   box(宝箱)   = 有奖励可领 → 先做【阶段A】(点建筑 → 选择/确认/再次确认)
+#   感叹号(!)   = 上次登录没做该任务, 感叹号取代了 box → 直接做【阶段B】
+# 阶段A 做完后, 感叹号会出现在原 box 的位置 → 接着做【阶段B】:
+#   点建筑 → 点「派遣」按钮 → 弹窗遮挡建筑 → 选择 / 确认 / 再次确认
+dispatch_outpost_task:
+  enabled: true
+  building: dispatch_outpost
+  box: dispatch_outpost_box                      # 宝箱
+  exclamation: dispatch_outpast_exclamation_point  # 感叹号(取代 box)
+  dispatch_btn: dispatch_outpast_dispatch        # 「派遣」按钮
+  box_above: 200          # 在建筑上方多少像素范围内找 box / 感叹号
+  box_margin: 80          # 建筑左右各扩多少
+  enter_wait: 1.5         # 点建筑/按钮后等待界面响应
+  dispatch_wait: 6.0      # 点建筑后等「派遣」按钮出现的超时(秒)
+
+  # 弹窗: 选择 → 确认 → 再次确认 (两个阶段共用同一套)
+  select_roi: [717, 405, 999, 219]      # 两个选项所在区域
+  select_pick: left                     # 点哪个: left / right / center
+  confirm_roi: [976, 926, 297, 72]      # 确认按钮
+  confirm2_roi: [825, 926, 246, 75]     # 再次确认按钮
+  click_confirm: true                   # 是否点击确认(含再次确认)
+  confirm_wait: 1.0                     # 各步之间的等待
+
+# ============ 礼物任务 (三个) ============
+# 通用说明:
+#   - 点击目标一律是【按钮本身】, 不是礼物图标(gift.png) ——
+#     礼物图标可能贴在按钮外侧, 点它会落空.
+#   - 领取按钮点完都会弹小奖励窗, 需紧接着再点同一位置把它关掉.
+#     间隔由各任务的 receive_wait 控制 (代码把它作为那次点击自带的等待,
+#     不会叠加 tap_point 默认的 0.6s, 否则实际间隔会和配置值对不上).
+#   - 收尾统一: 按返回键【直到】检测到【主城】或【看板娘】页面.
+#     正常一次返回键就能回主城 (friend 页返回直接到主城, 不经过菜单层),
+#     但页面切换有动画、且领取时那次补点偶尔会多推进一层, 所以做成
+#     "没回到首页就再按一次": 每次按完轮询 1.5s 再判定, 避开动画期误判.
+#     每轮都先检测再决定是否按键 —— 已在首页就绝不按键,
+#     因为在主城上多按返回键会弹出"退出游戏"确认框.
+#   - 坐标见 config/coords.yaml 的 gift_spots / gift_receive
+
+# ---- friend 礼物 (不做礼物判定, 直接进) ----
+# ① 点「菜单」按钮 → ② 点「好友」入口 → ③ 点「接收」→ 同位置再点一次
+# 为什么不做 gift 判定: 这一路点下去不会误触 —— 即使没礼物, 也只是进去后
+#   没东西可领、点「接收」落空, 不会触发破坏性操作.
+friend_gift_task:
+  enabled: true
+  menu: menu              # 「菜单」按钮
+  menu_roi: null          # null = 全屏找; 别处有相似图标时可框定区域
+  friend: friend          # 菜单层里的「好友」入口
+  friend_roi: null        # null = 全屏找
+  open_wait: 1.0          # 点按钮后等界面响应
+  receive_wait: 1.0       # 点「接收」→ 同位置再点一次 的间隔
+  back_wait: 1.0          # 按返回键后等页面渲染
+
+# ---- 公会签到礼物 (保留礼物判定) ----
+# ① 公会按钮处有礼物图标才做 → ② 点「公会」按钮
+# ③ 等 guild_castle 出现 = 确认进入公会页
+# ④ 点「签到」→ 同位置再点一次 → ⑤ 返回并验证
+guild_gift_task:
+  enabled: true
+  gift: gift              # 礼物图标 (仅作"有没有礼物"的指示, 不点击)
+  guild: guild            # 底部栏「公会」按钮
+  guild_roi: null
+  entered: guild_castle   # 进入公会页后出现的图标
+  entered_timeout: 8.0    # 等它出现的超时(秒)
+  open_wait: 1.0
+  receive_wait: 1.0
+  back_wait: 1.0
+
+# ---- 商店金币礼物 (保留礼物判定) ----
+# ① 商店按钮处有礼物图标才做 → ② 点「商店」按钮
+# ③ 等 shop_resource 出现 = 确认进入商店页 → ④ 点 shop_resource
+# ⑤ 找金币(shop_resource_goldcoin) 点它 → ⑥ 点「确认」→ 同位置再点一次
+# ⑦ 返回并验证
+shop_gift_task:
+  enabled: true
+  gift: gift                      # 礼物图标 (仅作"有没有礼物"的指示, 不点击)
+  shop: shop                      # 底部栏「商店」按钮
+  shop_roi: null
+  resource: shop_resource         # 进入商店页的标志图标, 同时是要点的那个
+  coin: shop_resource_goldcoin    # 商店页里的金币
+  entered_timeout: 8.0            # 等 shop_resource 出现的超时(秒)
+  coin_timeout: 4.0               # 等金币出现的超时(秒)
+  open_wait: 1.0
+  receive_wait: 1.0
+  back_wait: 1.0
+
+# ---- 每日任务「一键领取」 ----
+# 逻辑:
+#   ① 点主城「任务」按钮
+#   ② 判断是否真进了任务界面: 查不到主城元素(menu/play) 就算进去了
+#      (与"点建筑进建筑页"用的是同一套判据)
+#   ③ 点「每日任务」页签
+#   ④ 两轮「点「全部领取」→ 隔 tap_gap 再点一次关掉小奖励窗」
+#      (第一下领取, 第二下关弹窗; 实测要重复两轮)
+#   ⑤ 按返回键 → 检测是否回到【主城】或【看板娘】页面
+# 坐标见 config/coords.yaml 的 daily_task_page
+daily_receive_task:
+  enabled: true
+  open_wait: 1.5          # 点「任务」后等界面切换
+  tap_gap: 0.5            # 同位置两次点击之间的间隔 (实测 0.5s)
+  rounds: 2               # 「全部领取」重复几轮
+  back_wait: 1.0

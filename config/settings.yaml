@@ -1,0 +1,45 @@
+device:
+  # auto = 自动探测; 也可写 adb.exe 绝对路径
+  adb_path: auto
+  # 保持 auto: 模拟器重启后序列号会变 (实测 5554 → 5556), 写死会导致连接失效.
+  # auto 会自动扫描端口并连接, 扫描开销仅几十毫秒, 远比连不上划算.
+  serial: auto
+  # 启动前是否杀掉 adb server(不同版本 adb 混用导致掉线时改为 true)
+  kill_server_on_start: false
+  # 截图后旋转角度. 雷电实测: 设备 1920x1080 = 实际帧 1920x1080, 方向一致, 无需旋转
+  rotate: 0
+  # B 服包名 (坎特伯雷公主与骑士 · B站代理)
+  game_package: com.bilibili.snake
+  # 主城界面 Activity (am start -n 目标)
+  game_activity: .MainActivity
+
+# 截图源. 当前用雷电模拟器 (LDPlayer), 它走标准 Android SurfaceFlinger,
+# 游戏画面会进 framebuffer, 因此 adb screencap 可直接拿到游戏画面 ——
+# 不依赖窗口可见性, 可最小化 / 被遮挡 / 后台运行.
+capture:
+  # adb  = adb screencap (雷电推荐, 已实测可拿到游戏画面)
+  # wgc  = Windows Graphics Capture (MuMu 专用备用; 雷电下不需要)
+  source: adb
+  # ↓ 以下仅 source: wgc 时生效, 保留作为 MuMu 回退配置
+  monitor: 1
+  window_title: MuMuNxDevice
+  crop_to_window: true
+  method: auto
+  content_roi: null
+  region: null
+
+loop:
+  interval: 0.35              # 每轮循环最小间隔(秒)
+  max_unknown_rounds: 40      # 连续 N 轮识别不到任何状态 → 触发兜底
+  log_unknown_frame: true     # 触发兜底时是否保存证据帧
+
+vision:
+  threshold: 0.85             # 默认匹配阈值
+  method: ccoeff              # ccoeff | ccorr | sqdiff
+  scales: [1.0]               # 多尺度, 分辨率有波动时改为 [0.9, 1.0, 1.1]
+
+action:
+  dry_run: true               # ★ 干跑模式, 只打印不点击
+  tap_jitter: 3               # 点击坐标随机抖动像素, 降低行为规律性
+  default_wait: 0.6           # 点击后默认等待
+  min_tap_interval: 0.05      # 两次点击最小间隔

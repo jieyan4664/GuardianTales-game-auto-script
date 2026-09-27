@@ -1,0 +1,215 @@
+# 界面元素坐标 —— 供"纯文字选项 / 固定按钮"点击使用
+#
+# 为什么文字/固定按钮用坐标而不是模板:
+#   文字笔画细, TM_CCOEFF_NORMED 对缩放/抗锯齿极敏感; 而这些元素位置固定,
+#   直接点坐标几乎不会失手, 也不受字体渲染影响.
+#
+# 格式: [x, y, w, h] (左上角 + 宽高), 代码点击时自动取中心点 (x+w//2, y+h//2)
+# 采集: python tools/cropper.py --live --roi-mode   (只打坐标, 不存图)
+# 未采集的字段留 null, 代码会安全跳过
+#
+# 分辨率基准: 1920x1080 (雷电). 改分辨率需重新采集.
+
+# ---- 玩法选择页 (PLAY_MENU) 顶部 5 个标签 ----
+play_menu:
+  recommend: [170, 147, 177, 64]     # 推荐
+  rift:      [504, 144, 196, 69]     # 裂痕
+  pvp:       [897, 148, 122, 60]     # pvp
+  challenge: [1254, 152, 128, 58]    # 挑战
+  other:     [1605, 148, 116, 58]    # 其他
+
+# ---- 裂痕页: 3 个次级选项 (进化石 / 开花石 / 资源觉醒) ----
+rift_menu:
+  evolution: [291, 228, 156, 51]     # 进化石副本
+  myth:      [874, 231, 168, 50]     # 开花石副本
+  resource:  [1458, 237, 216, 44]    # 资源/觉醒副本
+
+# ---- 推荐页: 具体玩法入口 ----
+# 推荐页有多种模式, 全屏匹配容易张冠李戴, 所以必须限定检索区域.
+# thetis: null → 用同名模板 thetis.png 定位; thetis_roi = 限定检索区域.
+recommend_menu:
+  thetis: null                       # 忒提斯英雄传 (图片方式, 模板 thetis.png)
+  thetis_roi: [855, 612, 54, 40]     # 限定检索区域 (推荐页位置固定)
+
+# ---- 忒提斯英雄传 ----
+# 扫荡按钮在 thetis 页面里(进入后才有), 用 sweep_template 图片定位.
+thetis_cards:
+  main:
+    sweep: null                      # 用 sweep_template 图片方式
+    free_empty: thetis_free_empty    # "0/3" 模板: 匹配到 = 没有免费次数
+    free_roi:   [951, 609, 58, 40]   # 免费次数 n/3 的限定检索区域
+
+# ---- 进化石副本的 6 张卡片 ----
+# 布局: 3 列 x 2 行
+#   第 1 行 (y≈560): basic(368) light(968) dark(1570)
+#   第 2 行 (y≈930): earth(369) fire(966) water(1569)
+# 每张卡片 4 个元素: 进入 / 扫荡 / 角色头像 / 切换角色
+# 当前已填 sweep; enter/avatar/switch_hero 待后续功能采集
+evolution_cards:
+  basic:                             # 基本/虚属性
+    sweep: [368, 561, 270, 66]
+    enter: null
+    avatar: null                     # 当前角色头像
+    switch_hero: null                # 切换角色按钮
+  light:                             # 光属性
+    sweep: [968, 556, 270, 72]
+    enter: null
+    avatar: null
+    switch_hero: null
+  dark:                              # 暗属性
+    sweep: [1570, 560, 267, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+  earth:                             # 土属性
+    sweep: [369, 928, 270, 70]
+    enter: null
+    avatar: null
+    switch_hero: null
+  fire:                              # 火属性
+    sweep: [966, 932, 270, 63]
+    enter: null
+    avatar: null
+    switch_hero: null
+  water:                             # 水属性
+    sweep: [1569, 930, 267, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+
+# ---- 开花石副本的卡片 (6 属性) ----
+# 对应裂痕 → 开花石副本 下方的卡片.
+# 坐标与 evolution_cards 【相同是正常的】: 开花石与进化石是【不同的页】,
+# 但页内布局一模一样, 所以各卡片位置天然一致, 不是复制的占位值.
+myth_cards:
+  basic:                             # 基本/虚属性
+    sweep: [368, 561, 270, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+  light:                             # 光属性
+    sweep: [968, 556, 270, 72]
+    enter: null
+    avatar: null
+    switch_hero: null
+  dark:                              # 暗属性
+    sweep: [1570, 560, 267, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+  earth:                             # 土属性
+    sweep: [369, 928, 270, 70]
+    enter: null
+    avatar: null
+    switch_hero: null
+  fire:                              # 火属性
+    sweep: [966, 932, 270, 63]
+    enter: null
+    avatar: null
+    switch_hero: null
+  water:                             # 水属性
+    sweep: [1569, 930, 267, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+
+# ---- 资源副本的卡片 (金币 / 经验 / 道具) ----
+# 对应裂痕 → 资源·觉醒副本 下方的卡片, 同样支持焕发次数
+# (三个卡片的扫荡按钮坐标均已实测, 见下)
+resource_cards:
+  gold:                              # 金币副本
+    sweep: [368, 560, 273, 66]
+    enter: null
+    avatar: null
+    switch_hero: null
+  exp:                               # 经验副本
+    sweep: [970, 562, 266, 63]
+    enter: null
+    avatar: null
+    switch_hero: null
+  item:                              # 道具副本
+    sweep: [1570, 562, 267, 62]
+    enter: null
+    avatar: null
+    switch_hero: null
+  awakening:                         # 觉醒副本 (每日前 3 次免费, 通常只刷 3 次)
+    sweep: [398, 930, 207, 63]                      # 点击中心 (501, 961)
+    enter: null
+    avatar: null
+    switch_hero: null
+    # 免费次数判定: 觉醒副本用完后【不显示 0/3】, 而是显示「挑战券兑换」.
+    # 所以用【正向确认】—— 认出"还有次数"才扫 (free_left), 认不出就不扫,
+    # 避免在没次数时误扫把挑战券(真货币)扣掉.
+    # 采集: 在有免费次数时, 框住 n/3 里不变的部分(只框 "/3", 数字 n 会变).
+    free_left: awakening_free_left                  # "/3" 模板: 命中 = 还有次数
+    # 实测 "/3" 位于 box (520, 942, 28, 33); 这里四周各留几 px 余量.
+    # 注意: 别把 ROI 框成和模板一样大 —— 差几像素就放不进去, 分数会暴跌.
+    free_roi:  [514, 936, 40, 45]
+  red_shard:                         # 红色碎片副本
+    # 各副本页布局一致, 沿用「火属性进化石」的坐标
+    sweep: [966, 932, 270, 63]                      # 点击中心 (1101, 963)
+    enter: null
+    avatar: null
+    switch_hero: null
+
+# ---- PVP 页面: 5 张卡片 (从左到右) ----
+# 第 1 张 = 圆形角斗场; 后续需要时再补其它 4 张
+pvp_cards:
+  colosseum:                         # 圆形角斗场 (最左侧卡片, 点卡片本身即进入)
+    enter: [99, 244, 285, 458]       # 点击中心 (241, 473)
+
+# ---- PVP 战斗信息弹窗 ----
+# 进入角斗场时, 若此前被其他玩家挑战过, 会先弹出战斗信息页, 需点空白处关闭.
+# 位置待采集: 遇到该弹窗时用 --roi-mode 框选"空白处"
+pvp_popup:
+  # close_area: 战斗信息弹窗上的"空白处", 点它可关闭弹窗, 露出底层被遮挡的按钮.
+  # 用 --roi-mode 框选弹窗上的空白区域得到; 代码取中心点点击.
+  close_area: [159, 180, 126, 306]  # 点击中心 (222, 333)
+
+# ---- 角斗场对手卡片: 每张卡右侧各有"战斗"按钮 (位置固定, 用坐标) ----
+# 3 张卡纵向排列 (从上到下 = card1/2/3); 默认挑战第 3 张 (见 pvp.py 的 opponent_card)
+colosseum_cards:
+  card1: [1632, 351, 213, 96]   # 点击中心 (1738, 399)
+  card2: [1636, 580, 210, 90]   # 点击中心 (1741, 625)
+  card3: [1632, 802, 214, 94]   # 点击中心 (1739, 849) ← 默认挑战这张
+
+# ---- 角斗场挑战确认弹窗 ----
+# 点卡片上的"战斗"后会弹出, 需要在弹窗里再点一次"战斗"才真正开打
+colosseum_popup:
+  battle: null                  # TODO 待采集: 弹窗里的"战斗"按钮坐标
+
+# ---- 扫荡弹窗 (点卡片扫荡按钮后弹出) ----
+# 该页主体为灰色, 文字按钮一律用坐标; 仅"已勾选"用模板 sweep_check_on 判断
+sweep_dialog:
+  checkbox: [819, 522, 282, 48]      # 复选框方框 (未勾选时点它)
+  sweep:    [970, 916, 288, 76]      # 弹窗的扫荡按钮 (文字)
+  ok:       [810, 854, 302, 81]      # 结果页确认按钮 (文字, 位置固定)
+
+# ---- 礼物图标 (gift.png) 可能出现的位置 ----
+# 用法: 在这些 ROI 内用模板 gift.png 匹配, 命中就点它的中心领取.
+# 位置是"可能出现"而非必有 → 匹配不到就跳过, 不算失败.
+# 因为礼物图标在别处也可能出现, 必须限定 ROI, 否则全屏匹配会误点.
+# (gift.png 为 20x22 的小图标, ROI 比它大一圈, 检索有余量)
+gift_spots:
+  # 底部栏附近的三处
+  menu_gift:   [98, 968, 57, 52]     # 点击中心 (126, 994)
+  guild_gift:  [350, 963, 51, 60]    # 点击中心 (375, 993)
+  shop_gift:   [477, 963, 51, 56]    # 点击中心 (502, 991)
+  # 点「菜单」之后弹出的层里, 才可能出现的一处
+  friend_gift: [573, 718, 57, 56]    # 点击中心 (601, 746)
+
+# ---- 礼物「领取」按钮 (各任务页内的固定按钮, 用坐标) ----
+# 点完都会弹出小奖励窗, 需紧接着再点同一位置把它关掉
+# (间隔见 config/city.yaml 各礼物任务的 receive_wait).
+gift_receive:
+  friend: [555, 960, 276, 62]            # 好友页「接收」  点击中心 (693, 991) ← 采集名 friend_gift_receive
+  guild_attendance: [68, 927, 288, 80]   # 公会页「签到」  点击中心 (212, 967) ← 采集名 guild_attendance
+  shop_confirm: [994, 836, 273, 74]      # 商店页「确认」  点击中心 (1130, 873) ← 采集名 shop_confirm
+
+# ---- 每日任务「一键领取」相关位置 ----
+# 主城点「任务」→ 任务界面点「每日任务」页签 → 点「全部领取」
+daily_task_page:
+  task: [604, 927, 705, 105]          # 主城底部「任务」按钮    点击中心 (956, 979)
+  daily_task: [68, 118, 546, 64]      # 任务界面「每日任务」页签 点击中心 (341, 150)
+  receive_all: [1586, 930, 216, 68]   # 「全部领取」按钮        点击中心 (1694, 964)
+  receive_end: [159, 932, 232, 68]    # 「领取完毕」状态 (用途待确认, 当前代码未使用)

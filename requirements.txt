@@ -1,0 +1,13 @@
+opencv-python>=4.8.0
+numpy>=1.24.0
+PyYAML>=6.0
+
+# Windows 窗口截图 (MuMu 把游戏画面直接渲染到 host 窗口, adb screencap 抓不到)
+mss>=9.0.1
+pywin32>=306; sys_platform == "win32"
+
+# WGC 截图 (MuMu 专用备用方案; 雷电走 adb 不需要, 但代码存在故声明)
+windows-capture>=2.0.1
+
+# 后期需要 OCR 识别体力/金币时取消注释:
+# rapidocr-onnxruntime>=1.3.0

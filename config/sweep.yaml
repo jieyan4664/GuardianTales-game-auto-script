@@ -1,0 +1,89 @@
+# 「消耗焕发次数」配置
+#
+# 机制:
+# - 每日 10 次焕发机会, 所有副本共用 (不是每副本各 10 次)
+# - 扫荡得 3 倍资源; 卡片右上角 "x3" = 当日仍有焕发次数
+# - 勾选「设置为剩余焕发次数」后系统自动填次数, 一次可扫掉剩余全部
+# - 该勾选游戏会记住 (默认勾选), 所以脚本是"判断是否已勾选", 不是每次都去勾
+#
+# 用法:
+#   python tools/sweep.py --from-main            # 干跑 (从主城自动导航)
+#   python tools/sweep.py --from-main --live     # 实跑
+#
+# 选择副本: 把想刷的 enabled 改成 true. 10 次共用, 按 targets 顺序消耗.
+#
+# 字段说明:
+#   tab  次级选项: evolution(进化石) / resource(资源觉醒)
+#        【开花石 myth 不在这里】它没有焕发次数机制, 要刷请用 sweep_normal.yaml
+#   slot 该次级下的卡片名, 对应 coords.yaml 里的 <tab 对应组>.<slot>.sweep
+
+max_daily: 10              # 每日焕发次数上限 (全局共用)
+
+# 判断"扫荡完成"用的模板名 —— 扫荡完成后固定出现的静态图
+# (确认按钮期间一直存在且不变化, 画面稳定也因结算动画而不可靠, 故以此图为准)
+result_template: sweep_result
+
+default_times: auto        # auto = 勾选剩余次数一次扫完; N = 指定次数(暂未实现)
+
+auto_check_remaining: true # 未勾选时自动勾上「设置为剩余焕发次数」
+
+# 点完「确认」后的补充点击 —— 结算后还会再弹一层(奖励/二次确认)需关掉.
+# 位置与确认按钮相同, 中间隔 confirm_interval 秒 (不是双击).
+extra_confirm_taps: 1      # 补充点击次数 (0 = 不补点)
+confirm_interval: 0.5      # 两次点击之间的间隔秒数 (实测弹窗出现很快, 0.5s 足够)
+
+targets:
+  # ---------- 进化石副本 (tab: evolution) ----------
+  - name: 基本/虚属性进化石
+    tab: evolution
+    slot: basic
+    enabled: false          # ← 想刷就改 true
+    times: auto
+  - name: 光属性进化石
+    tab: evolution
+    slot: light
+    enabled: false
+    times: auto
+  - name: 暗属性进化石
+    tab: evolution
+    slot: dark
+    enabled: false
+    times: auto
+  - name: 土属性进化石
+    tab: evolution
+    slot: earth
+    enabled: true
+    times: auto
+  - name: 火属性进化石
+    tab: evolution
+    slot: fire
+    enabled: false
+    times: auto
+  - name: 水属性进化石
+    tab: evolution
+    slot: water
+    enabled: false
+    times: auto
+
+  # ---------- 资源副本 (tab: resource) ----------
+  # 需要卡片扫荡按钮坐标 (见 coords.yaml 的 resource_cards)
+  - name: 金币副本
+    tab: resource
+    slot: gold
+    enabled: false
+    times: auto
+  - name: 经验副本
+    tab: resource
+    slot: exp
+    enabled: false
+    times: auto
+  - name: 道具副本
+    tab: resource
+    slot: item
+    enabled: false
+    times: auto
+
+  # ---------- 开花石副本: 不在此列 ----------
+  # 开花石【没有焕发次数机制】, 不属于本文件(本文件整体是"消耗焕发次数"):
+  # 把它放这里只会因为没有绿勾 sweep_check_on 而被静默跳过.
+  # 要刷开花石请用 config/sweep_normal.yaml (按指定次数扫, 与焕发独立).

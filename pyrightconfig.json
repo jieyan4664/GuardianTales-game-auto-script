@@ -1,0 +1,23 @@
+{
+  "pythonVersion": "3.13",
+  "extraPaths": [
+    ".",
+    "D:/anaconda3/Lib/site-packages",
+    "D:/anaconda3/Lib/site-packages/win32",
+    "D:/anaconda3/Lib/site-packages/win32/lib",
+    "C:/Users/jieyan4664/AppData/Roaming/Python/Python313/site-packages"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/*.pyc",
+    ".git",
+    ".codebuddy",
+    "assets",
+    "logs",
+    "build",
+    "dist"
+  ],
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": true,
+  "typeCheckingMode": "standard"
+}

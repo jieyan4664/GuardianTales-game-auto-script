@@ -1,0 +1,177 @@
+# 普通扫荡 (手动指定次数) —— 与「消耗焕发次数」(config/sweep.yaml) 相互独立
+#
+# 区别:
+#   - 不判断/不勾选「设置为剩余焕发次数」(焕发次数用完后该复选框不会出现)
+#   - 次数由你在这里指定, 脚本通过点击加号按钮把次数从默认 1 调到目标值
+#
+# 弹窗规则 (实测):
+#   - 点卡片扫荡按钮后, 弹窗默认次数 = 1
+#   - 最大次数 = 50
+#   - 加号/减号在滑条两侧, 用小图标模板 sweep_plus / sweep_minus 定位
+#
+# 用法:
+#   python tools/sweep_normal.py --from-main           # 干跑
+#   python tools/sweep_normal.py --from-main --live    # 实跑
+
+max_times: 50              # 游戏允许的单次扫荡上限
+
+# 设次数前的归零次数: 点几次减号把次数压到最小, 再加到目标值
+# 实测弹窗每次打开默认就是 1, 所以通常设 0 (不减, 直接加)
+# 若发现次数会保留上次的值, 改成 10 左右即可先归零
+reset_taps: 0
+
+# 每次点加号后的间隔秒数 (太快可能漏点)
+plus_interval: 0.15
+
+# 点完「确认」后的补充点击 —— 扫荡完成后还会再弹一层(奖励/二次确认),
+# 需在确认按钮的同一位置再点一次把它关掉.
+# 注意: 不是双击, 两次之间有 confirm_interval 秒间隔.
+extra_confirm_taps: 1      # 补充点击次数 (0 = 不补点)
+confirm_interval: 0.2      # 确认与补充点击之间的间隔秒数
+
+# ---- 免费次数判定 (n/3 类副本: 觉醒 / thetis) ----
+# check_free: true → 扫荡前先判断免费次数, 两种判定方式二选一配在 coords.yaml:
+#
+#   free_left (推荐, 正向确认):
+#       命中模板 = 【还有】次数 → 扫荡;
+#       没命中   = 用完 / 无法确认 → 跳过, 不扫.
+#       安全: 模板万一没匹配上, 结果是"不扫", 不会误扣挑战券(真货币).
+#
+#   free_empty (反向确认):
+#       命中模板 = 【没有】次数 → 跳过; 没命中 → 当作还有 → 扫荡.
+#       风险: 模板没匹配上会误判成还有次数.
+#
+#   两者共用 free_roi 作为限定检索区域.
+#
+#   注意: 各模式"用完"时的显示不同, 要按实际采 ——
+#     thetis  : 显示 "0/3"          → 现在用 free_empty
+#     觉醒副本: 用完时【不显示 0/3】, 而是显示「挑战券兑换」
+#               → 所以改用 free_left 正向确认 (只框 n/3 里不变的 "/3")
+# auto_free_times: true → 弹窗里系统已默认选好剩余免费次数, 跳过"设次数"步骤.
+#
+# use_free_times (旧方案, 靠识别复选框绿勾 sweep_check_on):
+#     代码仍保留, 但已不推荐 —— 复选框在免费次数用完后会整个消失,
+#     靠"有没有绿勾"判断不如直接认"0/3"直观.
+#     注意: 该方案不会主动去点复选框 (选项消失后点那个坐标会误触其它按钮).
+targets:
+  # ---------- 进化石副本 (tab: evolution) ----------
+  - name: 基本/虚属性进化石
+    tab: evolution
+    slot: basic
+    enabled: false          # ← 想刷就改 true
+    times: 1               # ← 你指定次数 (1~50)
+  - name: 光属性进化石
+    tab: evolution
+    slot: light
+    enabled: false
+    times: 1
+  - name: 暗属性进化石
+    tab: evolution
+    slot: dark
+    enabled: false
+    times: 1
+  - name: 土属性进化石
+    tab: evolution
+    slot: earth
+    enabled: false
+    times: 1
+  - name: 火属性进化石
+    tab: evolution
+    slot: fire
+    enabled: false
+    times: 1
+  - name: 水属性进化石
+    tab: evolution
+    slot: water
+    enabled: false
+    times: 1
+
+  # ---------- 开花石副本 (tab: myth) ----------
+  # 坐标已采集齐全 (coords.yaml 的 myth_cards, 6 个属性).
+  # 注意: 开花石【没有焕发次数机制】, 所以它只能在【本文件】按 times 指定次数扫;
+  #       不能放进 daily.yaml 的 radiant 步骤 —— 那里靠弹窗绿勾判断次数, 会永远跳过.
+  - name: 基本/虚属性开花石
+    tab: myth
+    slot: basic
+    enabled: false
+    times: 1
+  - name: 光属性开花石
+    tab: myth
+    slot: light
+    enabled: false
+    times: 1
+  - name: 暗属性开花石
+    tab: myth
+    slot: dark
+    enabled: false
+    times: 1
+  - name: 土属性开花石
+    tab: myth
+    slot: earth
+    enabled: true
+    times: 1
+  - name: 火属性开花石
+    tab: myth
+    slot: fire
+    enabled: false
+    times: 1
+  - name: 水属性开花石
+    tab: myth
+    slot: water
+    enabled: false
+    times: 1
+
+  # ---------- 资源副本 (tab: resource) ----------
+  - name: 金币副本
+    tab: resource
+    slot: gold
+    enabled: false
+    times: 1
+  - name: 经验副本
+    tab: resource
+    slot: exp
+    enabled: false
+    times: 1
+  - name: 道具副本
+    tab: resource
+    slot: item
+    enabled: false
+    times: 1
+  - name: 觉醒副本
+    tab: resource
+    slot: awakening
+    check_free: true       # 用"0/3"模板判断免费次数(不再看复选框)
+    auto_free_times: true  # 还有次数时, 弹窗已默认选好剩余免费次数 → 跳过设次数
+    # enabled 只影响两处: ① 单独跑 sweep_normal.py; ② daily.yaml 的 extra_sweep 名单.
+    # 日常链里的觉醒副本走的是 daily.yaml 的 kind: awakening, 按【名字】取目标,
+    # 【不看这里】→ 所以关掉它不影响日常.
+    # 关掉的原因: 已经有独立步骤了, 不想在 extra_sweep 里再空跑一遍.
+    enabled: false
+    times: 1               # 每日前 3 次免费 (实际次数由系统按剩余免费次数决定)
+  - name: 红色碎片副本
+    tab: resource
+    slot: red_shard
+    enabled: false
+    times: 1
+
+  # ---------- 推荐页副本 (top: recommend) ----------
+  # 忒提斯英雄传:
+  #   推荐页有多种模式, 必须限定区域检索 thetis 标识, 全屏匹配会张冠李戴.
+  #   免费次数是 n/3 (上限 3), 命中"0/3"模板 = 没有免费次数.
+  #   弹窗里系统已默认选好剩余免费次数 → 不需要手动设次数, 直接点扫荡.
+  #   结算沿用进化石那套(结果模板 + 确认坐标), 但不需要补充点击/点空白区.
+  - name: 忒提斯英雄传
+    top: recommend
+    tab: thetis
+    slot: main
+    locate_entry: true             # 先定位 thetis 标识, 判断免费次数后再点
+    check_free: true               # 读 n/3, 命中"0/3" = 没有免费次数
+    entered_template: thetis_entered   # 进入 thetis 后的标识 (待采集)
+    sweep_template: thetis_sweep       # thetis 页面里的扫荡按钮 (待采集)
+    auto_free_times: true          # 弹窗已默认选好剩余免费次数, 跳过设次数
+    extra_confirm_taps: 0          # 点完确认即可, 不补充点击/不点空白区
+    back_after: true               # 结束后按返回键回到推荐页
+    # 同"觉醒副本": 日常链走 daily.yaml 的 kind: thetis, 按名字取目标, 不看这里;
+    # 关掉是为了不进入 extra_sweep 的名单 (它已有独立步骤).
+    enabled: false
+    times: 1

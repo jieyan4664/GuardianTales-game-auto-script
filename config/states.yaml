@@ -1,0 +1,332 @@
+rules:
+- state: COLOSSEUM
+  template: colosseum_defense.png
+  threshold: 0.85
+  roi:
+  - 474
+  - 933
+  - 57
+  - 63
+  _source: cropper
+- state: COLOSSEUM
+  template: colosseum_battleRecord.png
+  threshold: 0.85
+  roi:
+  - 62
+  - 714
+  - 45
+  - 50
+  _source: cropper
+- state: COLOSSEUM
+  template: colosseum_ranking.png
+  threshold: 0.85
+  roi:
+  - 60
+  - 550
+  - 46
+  - 51
+  _source: cropper
+- state: COLOSSEUM
+  template: colosseum_rewards.png
+  threshold: 0.85
+  roi:
+  - 64
+  - 386
+  - 42
+  - 48
+  _source: cropper
+- state: PVP
+  template: ticket_empty.png
+  threshold: 0.85
+  roi:
+  - 1305
+  - 960
+  - 54
+  - 40
+  _source: cropper
+- state: PVP
+  template: pvp.png
+  threshold: 0.85
+  roi:
+  - 1214
+  - 496
+  - 195
+  - 164
+  _source: cropper
+- state: RIFT_RESOURCE
+  template: rift_resource.png
+  threshold: 0.85
+  roi:
+  - 261
+  - 309
+  - 294
+  - 231
+  _source: cropper
+- state: RIFT_MYTH
+  template: rift_myth.png
+  threshold: 0.85
+  roi:
+  - 916
+  - 666
+  - 180
+  - 250
+  _source: cropper
+- state: RIFT_EVOLUTION
+  template: rift_evolution.png
+  threshold: 0.85
+  roi:
+  - 916
+  - 302
+  - 183
+  - 246
+  _source: cropper
+- state: MAIN
+  template: event.png
+  threshold: 0.85
+  roi:
+  - 1791
+  - 210
+  - 72
+  - 74
+  _source: cropper
+- state: MAIN
+  template: pass.png
+  threshold: 0.85
+  roi:
+  - 1618
+  - 208
+  - 86
+  - 66
+  _source: cropper
+- state: MAIN
+  template: adventure.png
+  threshold: 0.85
+  roi:
+  - 1766
+  - 897
+  - 81
+  - 75
+  _source: cropper
+- state: MAIN
+  template: summoms.png
+  threshold: 0.85
+  roi:
+  - 1407
+  - 900
+  - 87
+  - 74
+  _source: cropper
+- state: MAIN
+  template: shop.png
+  threshold: 0.85
+  roi:
+  - 448
+  - 939
+  - 44
+  - 51
+  _source: cropper
+- state: MAIN
+  template: guild.png
+  threshold: 0.85
+  roi:
+  - 320
+  - 933
+  - 48
+  - 52
+  _source: cropper
+- state: MAIN
+  template: hero.png
+  threshold: 0.85
+  roi:
+  - 190
+  - 944
+  - 60
+  - 46
+  _source: cropper
+- state: MAIN
+  template: play.png
+  threshold: 0.85
+  roi:
+  - 1593
+  - 897
+  - 84
+  - 80
+  _source: cropper
+# my_room 与 heavenhold 出现在【同一位置】(右下角那个位置), 二选一:
+#   主城页面     → 显示 my_room
+#   看板娘页面   → 显示 heavenhold
+# 登录后进哪个页面取决于玩家设置, 两者除"能否点建筑"外与主城无异,
+# play 按钮都能点进玩法页 → 统一判为 MAIN, 脚本不用区分.
+# ROI 特意留了余量(别贴着元素框, 差几像素就会匹配失败).
+- state: MAIN
+  template: my_room.png
+  threshold: 0.85
+  roi:
+  - 1788
+  - 364
+  - 75
+  - 81
+  _source: cropper
+- state: MAIN
+  template: heavenhold.png
+  threshold: 0.85
+  roi:
+  - 1788
+  - 364
+  - 75
+  - 81
+  _source: cropper
+- state: MAIN
+  template: menu.png
+  threshold: 0.85
+  roi:
+  - 75
+  - 938
+  - 44
+  - 48
+  _source: cropper
+- state: SWEEP_DIALOG
+  template: sweep_plus.png
+  threshold: 0.85
+  roi:
+  - 1344
+  - 720
+  - 60
+  - 62
+  _source: cropper
+- state: SWEEP_DIALOG
+  template: sweep_minus.png
+  threshold: 0.85
+  roi:
+  - 514
+  - 717
+  - 64
+  - 66
+  _source: cropper
+- state: SWEEP_RESULT
+  template: sweep_result.png
+  threshold: 0.85
+  roi:
+  - 636
+  - 366
+  - 66
+  - 58
+  _source: cropper
+- state: SWEEP_DIALOG
+  template: sweep_check_on.png
+  threshold: 0.85
+  roi:
+  - 825
+  - 530
+  - 32
+  - 27
+  _source: cropper
+# 这两个翻页箭头会左右飘动(待机动画), 位置不固定.
+# 原先给它们框了 68~86px 的小 ROI, 箭头一飘就出框导致匹配不到 → 判定失败.
+# 所以这里【不设 roi】, 改成全屏搜索, 匹配会跟着飘动走.
+- state: PLAY_MENU
+  template: play_page_next.png
+  threshold: 0.85
+  _source: cropper
+- state: PLAY_MENU
+  template: play_page_prev.png
+  threshold: 0.85
+  _source: cropper
+# 注: play_back.png 已不作为 PLAY_MENU 的判定标识 ——
+# 它(左上角返回箭头)在其它页面也可能出现, 靠它判断"是否在玩法页"会误判.
+# 该模板仅保留给 game/handlers/play_menu.py 的 go_back() 用作点击目标.
+- state: MENU
+  template: friend.png
+  threshold: 0.85
+  roi:
+  - 507
+  - 747
+  - 81
+  - 78
+  _source: cropper
+- state: MENU
+  template: sns.png
+  threshold: 0.85
+  roi:
+  - 363
+  - 754
+  - 75
+  - 66
+  _source: cropper
+- state: MENU
+  template: inventory.png
+  threshold: 0.85
+  roi:
+  - 214
+  - 754
+  - 66
+  - 66
+  _source: cropper
+- state: MENU
+  template: enhance.png
+  threshold: 0.85
+  roi:
+  - 68
+  - 753
+  - 66
+  - 74
+  _source: cropper
+- state: MENU
+  template: party.png
+  threshold: 0.85
+  roi:
+  - 519
+  - 582
+  - 58
+  - 69
+  _source: cropper
+- state: MENU
+  template: quest.png
+  threshold: 0.85
+  roi:
+  - 360
+  - 576
+  - 74
+  - 80
+  _source: cropper
+- state: MENU
+  template: attendance.png
+  threshold: 0.85
+  roi:
+  - 218
+  - 585
+  - 64
+  - 64
+  _source: cropper
+- state: MENU
+  template: book.png
+  threshold: 0.85
+  roi:
+  - 70
+  - 579
+  - 57
+  - 69
+  _source: cropper
+
+# ---- 游玩页推断: 子页探针 ----
+# 为什么需要这段:
+#   游玩页没有固定不变的元素 —— 翻页箭头会左右飘, 靠它判定不稳.
+#   但游玩页有 5 个选项: 推荐 / 裂痕 / PVP / 挑战 / 其他,
+#   点这些选项【不会跳页】, 只是在页内切换一部分内容.
+#   所以: 只要能确认处于其中任一子页, 就等价于处于游玩页.
+#
+# 为什么放在文件【末尾】:
+#   Recognizer.detect 是"从上往下、命中即返回". 放在末尾后,
+#   前面更具体的状态(PVP / RIFT_* 等)先命中就先返回;
+#   全都没命中才轮到这里的探针, 于是"认出任意子页内容" → 推断为 PLAY_MENU.
+#   (裂痕/PVP 各自已有专属规则会先命中, 这里不必重复登记.)
+- state: PLAY_MENU
+  template: thetis.png            # 推荐页: 忒提斯英雄传入口
+  threshold: 0.85
+  roi:
+  - 855
+  - 612
+  - 54
+  - 40
+  _source: cropper
+# TODO: 「挑战」「其他」两个子页暂无标识, 采到后按同样格式追加即可.

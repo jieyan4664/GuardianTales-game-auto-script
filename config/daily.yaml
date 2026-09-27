@@ -1,0 +1,119 @@
+# 日常一条龙
+#
+# 用法:
+#   python tools/daily.py            # 干跑
+#   python tools/daily.py --live     # 实跑
+#
+# 按 steps 顺序依次执行; 某一步没次数 / 失败 → 跳过, 继续下一步.
+#
+# 字段说明:
+#   kind: thetis / awakening → 复用 config/sweep_normal.yaml 里同名目标
+#         radiant            → 消耗焕发次数, 目标在 targets 里【单独列】
+#         extra_sweep        → 【可选】焕发用完后, 按指定次数再扫一遍副本
+#                              (只扫 sweep_normal.yaml 里 enabled 的目标)
+#         colosseum          → 圆形角斗场, 消耗所有挑战次数
+#         daily_task         → 每日任务一键领取【收尾】, 必须放在最后
+#
+# radiant 的 target 字段:
+#   name 随便起 (只用于日志)
+#   tab  次级选项: evolution(进化石) / resource(资源)
+#        【开花石 myth 不能放这里】它没有焕发次数机制, 详见下面 targets 里的说明
+#   slot 卡片名, 对应 coords.yaml 的 <tab 对应组>.<slot>.sweep
+#   top  顶层标签, 默认 rift (一般不用改)
+
+steps:
+  # ① 主城任务: 点 inn + 宝箱 —— 必须在【首页】执行, 所以排最前
+  #    (配置见 config/city.yaml)
+  - name: 主城任务
+    kind: city
+    enabled: true
+
+  # ② 忒提斯: play 页默认显示推荐页, 所以进玩法页后先处理它
+  - name: 忒提斯英雄传
+    kind: thetis
+    enabled: true
+
+  # ③ 消耗焕发次数 (每日 10 次, 所有副本共用, 按 targets 顺序消耗)
+  #    要刷哪些副本在这里单独列, 不用改 config/sweep.yaml
+  #    注意: 10 次是【共用】的, 不是每个副本各 10 次
+  - name: 消耗焕发次数
+    kind: radiant
+    enabled: true
+    targets:
+      # ---- 进化石 (tab: evolution) 6 个属性, 坐标均已实测 ----
+      # - name: 虚属性进化石
+      #   tab: evolution
+      #   slot: basic
+      # - name: 光属性进化石
+      #   tab: evolution
+      #   slot: light
+      # - name: 暗属性进化石
+      #   tab: evolution
+      #   slot: dark
+      # - name: 土属性进化石
+      #   tab: evolution
+      #   slot: earth
+      # - name: 火属性进化石
+      #   tab: evolution
+      #   slot: fire
+      # - name: 水属性进化石
+      #   tab: evolution
+      #   slot: water
+
+      # ---- 资源副本 (tab: resource) ----
+      - name: 金币副本
+        tab: resource
+        slot: gold
+      # - name: 经验副本
+      #   tab: resource
+      #   slot: exp
+      # - name: 道具副本
+      #   tab: resource
+      #   slot: item
+      # - name: 红色碎片副本
+      #   tab: resource
+      #   slot: red_shard      # 已沿用火属性进化石坐标, 可直接用
+
+      # ---- 开花石 (tab: myth) —— 【不能放在本步骤】----
+      # 开花石副本【没有焕发次数机制】, 而本步骤是靠"扫荡弹窗里有没有
+      # 绿勾 sweep_check_on"来判断次数的; 开花石的弹窗里根本没有这个勾选,
+      # 所以列在这里只会【每次都被静默跳过】, 白等一场.
+      #
+      # 要刷开花石请走「普通扫荡」(与焕发相互独立):
+      #   把 config/sweep_normal.yaml 里对应开花石目标改成 enabled: true
+      #   (tab: myth, slot: basic/light/dark/earth/fire/water 都已配好),
+      #   再单独跑: python tools/sweep_normal.py --from-main --live
+      # 它的次数由你指定 (times), 不涉及焕发.
+
+  # ④ 额外扫荡副本 —— 【可选, 默认关】开关就是下面的 enabled
+  #    用途: 焕发次数用完(或这次不想用焕发)之后, 再按【指定次数】扫一遍副本.
+  #    扫哪几个副本: 只扫 config/sweep_normal.yaml 里 enabled: true 的那些目标.
+  #    次数(times): 本步骤的 times 会【统一覆盖】所有目标;
+  #                写成 null 则改用 sweep_normal.yaml 里各目标自己的 times.
+  #    注意: 这里走的是「普通扫荡」, 不做任何免费次数 / 焕发次数判断.
+  - name: 额外扫荡副本
+    kind: extra_sweep
+    enabled: false          # ← 想额外扫就改 true
+    times: 1                # 每个副本扫几次 (null = 用各目标自己的 times)
+
+  # ⑤ 觉醒副本: 有免费次数才扫 (用的是 n/3 正向确认)
+  - name: 觉醒副本
+    kind: awakening
+    enabled: true
+
+  # ⑤ 圆形角斗场: 消耗所有挑战次数
+  #    repeat 设大一点没关系, 脚本检测到没票会自动停
+  - name: 圆形角斗场
+    kind: colosseum
+    enabled: true
+    repeat: 10
+    opponent: 3
+
+  # ⑥ 每日任务一键领取 —— 【收尾任务, 必须放在最后】
+  #    它的奖励取决于前面各任务是否完成: 别的任务没做完, 这里就领不全.
+  #    所以不能再往前挪, 否则会漏领.
+  #    (函数会先一路返回主城, 因为此刻多半还停在玩法页 / 角斗场里;
+  #     配置见 config/city.yaml 的 daily_receive_task)
+  - name: 每日任务一键领取
+    kind: daily_task
+    enabled: true
