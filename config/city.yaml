@@ -188,5 +188,10 @@ daily_receive_task:
   enabled: true
   open_wait: 1.5          # 点「任务」后等界面切换
   tap_gap: 0.5            # 同位置两次点击之间的间隔 (实测 0.5s)
-  rounds: 2               # 「全部领取」重复几轮
+  # 领取轮次: 每轮「点该位置 → 隔 tap_gap 再点一次关掉小奖励窗」, 按顺序执行.
+  # 值是在 config/coords.yaml 的 daily_task_page 里的键名; 想加轮次就往列表里加.
+  # 实测两轮点的【不是同一个按钮】: 第 1 轮点右下的「全部领取」, 第 2 轮点左下那个.
+  rounds:
+    - receive_all
+    - receive_end
   back_wait: 1.0

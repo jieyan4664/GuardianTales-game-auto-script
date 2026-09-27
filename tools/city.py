@@ -663,8 +663,9 @@ def run_daily_task_receive(device, matcher, actions, coords, cfg) -> bool:
       ② 判断是否真的进了任务界面: 查不到主城元素(menu/play) 即算进入
          (与"点建筑进建筑页"用的是同一套判据)
       ③ 点「每日任务」页签
-      ④ 两轮「点「全部领取」→ 隔 tap_gap 再点一次关掉小奖励窗」
-         (第一下领取, 第二下关弹窗; 实测要重复两轮)
+      ④ 逐轮领取: 每轮「点该位置 → 隔 tap_gap 再点一次关掉小奖励窗」
+         (第一下领取, 第二下关弹窗). 轮次与各自的位置由配置的 rounds 列表给出 ——
+         实测两轮点的【不是同一个按钮】: 第 1 轮右下的「全部领取」, 第 2 轮左下那个.
       ⑤ 按返回键 → 检测是否回到【主城】或【看板娘】页面
 
     前置: 这是【收尾任务】, 必须排在扫荡 / 角斗场等全部任务【之后】执行 ——
@@ -719,14 +720,16 @@ def run_daily_task_receive(device, matcher, actions, coords, cfg) -> bool:
         log.info("点「每日任务」页签 %s", dt)
         actions.tap_point(*dt, wait=gap)
 
-    # ④ 两轮: 点「全部领取」+ 同位置再点一次关小奖励窗
-    ra = coords.center("receive_all", "daily_task_page")
-    if ra is None:
-        log.warning("缺少 daily_task_page.receive_all 坐标, 跳过领取")
-    else:
-        rounds = max(1, int(t.get("rounds", 2)))
-        for r in range(1, rounds + 1):
-            _claim_tap(actions, ra, gap, f"全部领取 {r}/{rounds}")
+    # ④ 逐轮领取: 每轮「点该位置 → 同位置再点一次关掉小奖励窗」
+    #    rounds 是【位置键名的列表】(不是次数) —— 两轮点的是不同按钮.
+    keys = t.get("rounds") or ["receive_all"]
+    for i, key in enumerate(keys, 1):
+        pt = coords.center(key, "daily_task_page")
+        if pt is None:
+            log.warning("缺少 daily_task_page.%s 坐标, 跳过第 %d 轮", key, i)
+            continue
+        log.info("第 %d/%d 轮 → 位置键 [%s]", i, len(keys), key)
+        _claim_tap(actions, pt, gap, f"领取 {i}/{len(keys)}")
 
     # ⑤ 返回并验证
     back_to_home(device, matcher, actions, cfg, back_wait, "每日任务领取")

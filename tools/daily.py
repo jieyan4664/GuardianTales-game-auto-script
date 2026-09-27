@@ -119,6 +119,10 @@ def run_radiant_target(device, matcher, actions, coords, t, vals,
     if not has_radiant:
         log.info("[%s] 未检测到焕发勾选(次数应已用完), 跳过", name)
         print(f"  [跳过] {name}: 没有焕发次数")
+        # 【必须关弹窗】走到这里时扫荡弹窗已经打开了, 不关掉它会一直挡在
+        # 屏幕上, 后面所有目标的点击都会落到弹窗上 → 按返回键关掉再跳过.
+        log.info("按返回键关闭扫荡弹窗")
+        actions.back(wait_dialog)
         return False
     log.info("[%s] 检测到焕发次数(已勾选) → 直接扫掉剩余次数", name)
 
