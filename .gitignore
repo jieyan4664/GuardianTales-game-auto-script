@@ -9,4 +9,10 @@ venv/
 # 运行时产物
 logs/
 assets/screenshots/
-assets/templates/*.png
+
+# 本地环境相关: 含本机绝对路径(会暴露 Windows 用户名), 不上传
+pyrightconfig.json
+
+# 本地草稿 (终端日志粘贴)
+bo.txt
+bo2.txt
