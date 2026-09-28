@@ -124,6 +124,11 @@ python tools/daily.py --live    # 实跑
 
 ## 日常一条龙 (`tools/daily.py`)
 
+**可选的第一步 `auto_start`**：跑步骤前脚本会自己启动雷电模拟器、把游戏推进到主城
+（用官方 `ldconsole.exe`，已在运行的实例不会重复启动）。关掉就把 `config/daily.yaml`
+的 `auto_start.enabled` 改成 `false`，那时脚本假设你已经手动开好模拟器且游戏在主城。
+开启后还会用拿到的**确定 serial** 建连接，同时开着别的模拟器（如 MuMu）也不会连错。
+
 顺序完全由 `config/daily.yaml` 的 `steps` 决定 (可按 `kind` 增删 / 调序), 当前是:
 
 | # | 步骤 | kind | 说明 |

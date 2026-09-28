@@ -1,5 +1,9 @@
 """日常一条龙: 按 config/daily.yaml 的 steps 顺序依次完成日常.
 
+跑步骤前可选做一步 auto_start: 自己启动雷电模拟器, 并把游戏推进到主城
+(见 config/daily.yaml 的 auto_start.enabled; 关掉则假设你已经手动开好了).
+它还会返回确定的 serial 用于建连接, 同时开着别的模拟器时不会连错.
+
 步骤顺序由 config/daily.yaml 决定 (可增删 / 调序), 当前是:
   ① 主城任务       —— inn + 宝箱 + 礼物(friend/公会/商店) + 拖动找建筑.
                       必须在【主城】做, 所以排最前, 且不能先点 play
@@ -58,6 +62,7 @@ from tools.city import (                            # noqa: E402
     run_city_tasks,
     run_daily_task_receive,
 )
+from tools.launcher import ensure_emulator_ready    # noqa: E402
 
 log = get_logger("daily")
 
@@ -195,11 +200,30 @@ def main() -> None:
     adb_path = find_adb()
     if not adb_path:
         sys.exit("[ERROR] 未找到 adb.exe")
-    serial = settings.get("device", {}).get("serial")
+
+    # 自动启动模拟器 (可选, 见 daily.yaml 的 auto_start):
+    #   启动雷电 → 等开机 → 拉起游戏 → 点进主城, 并返回【确定的 serial】.
+    #   用它建连接有两个好处: ① 不用先手动开模拟器; ② 同时开着别的模拟器
+    #   (比如 MuMu) 时也不会连错设备.
+    auto_serial = None
+    auto = daily_cfg.get("auto_start") or {}
+    if auto.get("enabled"):
+        print("=" * 60)
+        print("  自动启动模拟器 (auto_start)")
+        print("=" * 60)
+        auto_serial = ensure_emulator_ready(settings, auto)
+        if not auto_serial:
+            sys.exit("[ERROR] 模拟器未能就绪, 中止.\n"
+                     "        不想让脚本自己启动? 把 config/daily.yaml 的\n"
+                     "        auto_start.enabled 改成 false")
+        print()
+
+    serial = auto_serial or settings.get("device", {}).get("serial")
     if not serial or serial == "auto":
         serial = detect_serial(adb_path)
     if not serial:
         sys.exit("[ERROR] 未探测到模拟器")
+    log.info("使用设备: %s", serial)
 
     action_cfg = settings.get("action", {})
     vision_cfg = settings.get("vision", {})

@@ -21,6 +21,23 @@
 #   slot 卡片名, 对应 coords.yaml 的 <tab 对应组>.<slot>.sweep
 #   top  顶层标签, 默认 rift (一般不用改)
 
+# ---- 自动启动模拟器 (可选) ----
+# enabled: true  → 跑步骤前先确保雷电已启动、游戏已进主城
+#                  (用的是官方 ldconsole.exe; 已在运行的实例不会重复启动)
+# enabled: false → 跳过, 假设你已经手动开好模拟器、游戏已在主城
+# 附带好处: 启动成功后会拿到【确定的 serial】来建连接 ——
+#           同时开着别的模拟器(如 MuMu)时也不会连错设备.
+# 下面的键不写就用默认值, 与 tools/launcher.py 的同名参数含义一致;
+# 想单独调试这一步: python tools/launcher.py --game --enter-city
+auto_start:
+  enabled: true
+  index: 0                  # 雷电实例序号
+  launch_game: true         # 拉起游戏
+  enter_city: true          # 从登录界面点进主城
+  device_timeout: 180       # 等 adb 列出设备的上限(秒)
+  boot_timeout: 120         # 等开机完成的上限(秒)
+  city_timeout: 60          # 停手后等主城出现(秒)
+
 steps:
   # ① 主城任务: 点 inn + 宝箱 —— 必须在【首页】执行, 所以排最前
   #    (配置见 config/city.yaml)

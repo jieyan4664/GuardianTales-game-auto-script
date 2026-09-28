@@ -334,6 +334,176 @@ def _launch_ok(rc: int, out: str) -> bool:
     return not any(b in out for b in bad)
 
 
+def ensure_emulator_ready(settings: dict, opts: dict) -> str | None:
+    """确保模拟器已启动、游戏已进主城. 成功返回 serial, 失败返回 None.
+
+    这是【给其它脚本复用】的入口 —— tools/daily.py 在跑步骤前会调用它;
+    单独调试/手动启动则走命令行: python tools/launcher.py --game --enter-city
+
+    opts 支持的键 (全部可选, 不写就用默认值):
+        list_only            只打印实例清单, 不做后面的事 (返回 None)
+        index / name         选哪个实例 (默认 index=0)
+        launch_game          是否拉起游戏 (默认 True)
+        enter_city           是否点进主城 (默认 True)
+        device_timeout       等 adb 列出设备的上限秒数 (默认 180)
+        boot_timeout         等开机完成的上限秒数 (默认 120)
+        game_wait            拉起游戏后等待秒数 (默认 8)
+        city_settle          开始点击前的等待 (默认 1.0)
+        city_tap_gap         两次点击的间隔 (默认 1.0)
+        city_max_taps        点击次数上限 (默认 10)
+        city_timeout         停手后等主城的上限秒数 (默认 60)
+        city_black_ratio     黑像素占比阈值 (默认 0.6)
+        city_black_hold      黑屏要持续多少秒才算 (默认 2.0)
+        tap_pt               登录界面的点击坐标 (默认屏幕中心)
+    """
+    ld = find_ldconsole()
+    if not ld:
+        log.error("没找到 ldconsole.exe —— 雷电安装目录没被探测到")
+        return None
+    log.info("ldconsole: %s", ld)
+
+    rc, out = _run([ld, "list2"])
+    if rc != 0:
+        log.error("list2 执行失败: %s", out)
+        return None
+    items = parse_list2(out)
+    if not items:
+        log.error("解析不到任何实例, list2 原始输出:\n%s", out)
+        return None
+
+    print("实例清单:")
+    for it in items:
+        state = "运行中" if it["running"] else "未启动"
+        print(f"  [{it['index']}] {it['name']}  {state}  "
+              f"{it['w']}x{it['h']} dpi={it['dpi']}")
+    if opts.get("list_only"):
+        return None
+
+    # 选实例
+    name = opts.get("name")
+    if name:
+        target = next((i for i in items if i["name"] == name), None)
+        if target is None:
+            log.error("没有名为 [%s] 的实例", name)
+            return None
+    else:
+        idx = int(opts.get("index", 0))
+        target = next((i for i in items if i["index"] == idx), None)
+        if target is None:
+            log.error("没有 index=%s 的实例", idx)
+            return None
+
+    idx = target["index"]
+    serial = expected_serial(idx)
+
+    adb = find_adb()
+    if not adb:
+        log.error("没找到 adb.exe")
+        return None
+
+    # 双重确认"是不是已经在跑": list2 说在跑, 或 adb 里已经有了 → 都不重复启动
+    # (避免开出第二个实例 —— 那会让 adb 出现多台设备, serial 自动探测变得不可控)
+    if target["running"] or device_present(adb, serial):
+        log.info("实例 [%d] 已在运行, 不重复启动", idx)
+    else:
+        log.info("启动实例 [%d] %s ...", idx, target["name"])
+        rc, out = _run([ld, "launch", "--index", str(idx)], timeout=60.0)
+        if rc != 0:
+            log.error("启动失败 (返回码 %s): %s", rc, out)
+            return None
+        log.info("已发送启动指令")
+
+    if not wait_device(adb, serial,
+                       float(opts.get("device_timeout", 180.0))):
+        return None
+    if not wait_boot(adb, serial, float(opts.get("boot_timeout", 120.0))):
+        return None
+
+    print(f"\n[OK] 模拟器就绪: {serial}")
+
+    dev_cfg = settings.get("device", {})
+    pkg = dev_cfg.get("game_package")
+    act = dev_cfg.get("game_activity")
+
+    # ---- 拉起游戏 ----
+    if opts.get("launch_game", True):
+        if not pkg:
+            log.warning("settings.yaml 没配 device.game_package, 跳过启动游戏")
+        else:
+            # 启动方式按优先级依次尝试:
+            #   1) ldconsole runapp —— 雷电原生, 不依赖 Activity 是否 exported
+            #   2) monkey          —— 通用做法, 按 LAUNCHER category 启动
+            #   3) am start -n     —— 兜底; 只有 exported 的 Activity 能这样起
+            #      (实测 .MainActivity 起不来: SecurityException ... not exported)
+            methods: list[tuple[str, list[str]]] = [
+                ("ldconsole runapp", [ld, "runapp", "--index", str(idx),
+                                      "--packagename", pkg]),
+                ("monkey", [adb, "-s", serial, "shell", "monkey", "-p", pkg,
+                            "-c", "android.intent.category.LAUNCHER", "1"]),
+            ]
+            if act:
+                methods.append(("am start", [adb, "-s", serial, "shell",
+                                             "am", "start", "-n",
+                                             f"{pkg}/{act}"]))
+
+            for label, cmd in methods:
+                log.info("尝试 [%s] 启动 %s ...", label, pkg)
+                rc, out = _run(cmd, timeout=60.0)
+                print(f"  [{label}] {out}")
+                if _launch_ok(rc, out):
+                    log.info("[%s] 启动指令成功", label)
+                    break
+                log.warning("[%s] 未成功, 换下一种方式", label)
+            else:
+                log.error("几种方式都失败了 —— 请在模拟器里手动点开游戏")
+                return None
+
+            time.sleep(float(opts.get("game_wait", 8.0)))
+
+            # 验证前台: 指令成功 ≠ 游戏真起来了.
+            # 管道写在【设备侧】, 只回传匹配行 —— 拉回本地过滤要 8~9 秒.
+            _, out = _run([adb, "-s", serial, "shell",
+                           "dumpsys window | grep mCurrentFocus"])
+            focus = next((l.strip() for l in out.splitlines()
+                          if "mCurrentFocus" in l), "")
+            if pkg in focus:
+                print(f"[OK] 游戏已到前台: {focus}")
+            else:
+                print(f"[!] 前台不是游戏: {focus or '(读不到)'}")
+
+    # ---- 从登录界面点进主城 ----
+    if opts.get("enter_city", True):
+        city_cfg = yaml.safe_load(
+            (ROOT / "config" / "city.yaml").read_text(encoding="utf-8")
+        ) or {}
+        tpl = city_cfg.get("my_room", "my_room")
+        roi = city_cfg.get("home_roi")
+
+        device = build_device(adb, serial, settings)
+        matcher = build_matcher(settings)
+        actions = Actions(device, matcher)
+        actions.default_wait = float(
+            settings.get("action", {}).get("default_wait", 0.6))
+
+        tap_pt = opts.get("tap_pt")
+        if not tap_pt:
+            w, h = device.frame_size
+            tap_pt = (w // 2, h // 2)
+
+        if not enter_main_city(
+                device, matcher, actions, tpl, roi, tap_pt,
+                settle=float(opts.get("city_settle", 1.0)),
+                tap_gap=float(opts.get("city_tap_gap", 1.0)),
+                max_taps=int(opts.get("city_max_taps", 10)),
+                timeout=float(opts.get("city_timeout", 60.0)),
+                black_ratio=float(opts.get("city_black_ratio", 0.6)),
+                black_hold=float(opts.get("city_black_hold", 2.0))):
+            return None
+        print(f"[OK] 已进入主城 (serial: {serial})")
+
+    return serial
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="雷电模拟器启动器 (独立工具)")
     parser.add_argument("--list", action="store_true",
@@ -373,145 +543,41 @@ def main() -> None:
                              "(默认 2s; 用于排除转场的一帧暗帧)")
     args = parser.parse_args()
 
-    ld = find_ldconsole()
-    if not ld:
-        sys.exit("[ERROR] 没找到 ldconsole.exe —— 雷电安装目录没被探测到")
-    log.info("ldconsole: %s", ld)
-
     settings = yaml.safe_load(
         (ROOT / "config" / "settings.yaml").read_text(encoding="utf-8")
     ) or {}
 
-    rc, out = _run([ld, "list2"])
-    if rc != 0:
-        sys.exit(f"[ERROR] list2 执行失败: {out}")
-    items = parse_list2(out)
-    if not items:
-        sys.exit(f"[ERROR] 解析不到任何实例, list2 原始输出:\n{out}")
-
-    print("实例清单:")
-    for it in items:
-        state = "运行中" if it["running"] else "未启动"
-        print(f"  [{it['index']}] {it['name']}  {state}  "
-              f"{it['w']}x{it['h']} dpi={it['dpi']}")
+    # --list: 只打印实例清单
     if args.list:
+        ensure_emulator_ready(settings, {"list_only": True})
         return
 
-    # 选实例
-    if args.name:
-        target = next((i for i in items if i["name"] == args.name), None)
-        if target is None:
-            sys.exit(f"[ERROR] 没有名为 [{args.name}] 的实例")
-    else:
-        target = next((i for i in items if i["index"] == args.index), None)
-        if target is None:
-            sys.exit(f"[ERROR] 没有 index={args.index} 的实例")
+    # 命令行参数 → 复用入口的 opts (与 daily.yaml 的 auto_start 是同一套键)
+    opts = {
+        "index": args.index,
+        "name": args.name,
+        "launch_game": bool(args.game),
+        "enter_city": bool(args.enter_city),
+        "device_timeout": args.timeout,
+        "boot_timeout": args.boot_timeout,
+        "game_wait": args.game_wait,
+        "city_settle": args.city_settle,
+        "city_tap_gap": args.city_tap_gap,
+        "city_max_taps": args.city_max_taps,
+        "city_timeout": args.city_timeout,
+        "city_black_ratio": args.city_black_ratio,
+        "city_black_hold": args.city_black_hold,
+    }
+    if args.tap_x is not None and args.tap_y is not None:
+        opts["tap_pt"] = (args.tap_x, args.tap_y)
 
-    idx = target["index"]
-    serial = expected_serial(idx)
-
-    adb = find_adb()
-    if not adb:
-        sys.exit("[ERROR] 没找到 adb.exe")
-
-    # 双重确认"是不是已经在跑": list2 说在跑, 或 adb 里已经有了 → 都不重复启动
-    # (避免开出第二个实例, 那会让 adb 出现多台设备、serial 自动探测变得不可控)
-    if target["running"] or device_present(adb, serial):
-        log.info("实例 [%d] 已在运行 (list2=%s, adb 已有=%s), 不重复启动",
-                 idx, target["running"], device_present(adb, serial))
-    else:
-        log.info("启动实例 [%d] %s ...", idx, target["name"])
-        rc, out = _run([ld, "launch", "--index", str(idx)], timeout=60.0)
-        if rc != 0:
-            sys.exit(f"[ERROR] 启动失败 (返回码 {rc}): {out}")
-        log.info("已发送启动指令")
-
-    if not wait_device(adb, serial, args.timeout):
-        sys.exit(1)
-    if not wait_boot(adb, serial, args.boot_timeout):
+    if not ensure_emulator_ready(settings, opts):
         sys.exit(1)
 
-    print(f"\n[OK] 模拟器就绪: {serial}")
+    print("\n[OK] 已就绪, 现在可以跑任务脚本了")
 
-    if args.game:
-        dev = settings.get("device", {})
-        pkg = dev.get("game_package")
-        act = dev.get("game_activity")
-        if not pkg:
-            log.warning("settings.yaml 里没配 device.game_package, 跳过启动游戏")
-            return
-        # 启动方式按优先级依次尝试:
-        #   1) ldconsole runapp —— 雷电原生, 不依赖 Activity 是否 exported
-        #   2) monkey          —— 通用做法, 按 LAUNCHER category 启动,
-        #                        同样不需要知道 Activity 名
-        #   3) am start -n     —— 兜底; 只有 exported 的 Activity 才能这样起
-        #      (实测 .MainActivity 就起不来: SecurityException ... not exported)
-        methods: list[tuple[str, list[str]]] = [
-            ("ldconsole runapp", [ld, "runapp", "--index", str(idx),
-                                  "--packagename", pkg]),
-            ("monkey", [adb, "-s", serial, "shell", "monkey", "-p", pkg,
-                        "-c", "android.intent.category.LAUNCHER", "1"]),
-        ]
-        if act:
-            methods.append(("am start", [adb, "-s", serial, "shell", "am",
-                                         "start", "-n", f"{pkg}/{act}"]))
 
-        for label, cmd in methods:
-            log.info("尝试 [%s] 启动 %s ...", label, pkg)
-            rc, out = _run(cmd, timeout=60.0)
-            print(f"  [{label}] {out}")
-            if _launch_ok(rc, out):
-                log.info("[%s] 启动指令成功", label)
-                break
-            log.warning("[%s] 未成功, 换下一种方式", label)
-        else:
-            log.error("几种方式都失败了 —— 请在模拟器里手动点开游戏")
-            return
 
-        time.sleep(args.game_wait)
-
-        # 验证: 指令成功 ≠ 游戏真的起来了, 所以再确认一次前台.
-        # 注意: 管道要写在【设备侧】, 让 grep 在模拟器里跑完只回传匹配行 ——
-        #      如果把整个 dumpsys 拉回本地再过滤, 传输量巨大, 实测要 8~9 秒.
-        _, out = _run([adb, "-s", serial, "shell",
-                       "dumpsys window | grep mCurrentFocus"])
-        focus = next((l.strip() for l in out.splitlines()
-                      if "mCurrentFocus" in l), "")
-        if pkg in focus:
-            print(f"[OK] 游戏已到前台: {focus}")
-        else:
-            print(f"[!] 前台不是游戏: {focus or '(读不到)'}")
-
-    # 从登录界面点进主城 (可单独用: 游戏已在登录界面时只加 --enter-city)
-    if args.enter_city:
-        city_cfg = yaml.safe_load(
-            (ROOT / "config" / "city.yaml").read_text(encoding="utf-8")
-        ) or {}
-        tpl = city_cfg.get("my_room", "my_room")
-        roi = city_cfg.get("home_roi")
-
-        dev = build_device(adb, serial, settings)
-        matcher = build_matcher(settings)
-        actions = Actions(dev, matcher)
-        actions.default_wait = float(
-            settings.get("action", {}).get("default_wait", 0.6))
-
-        if args.tap_x is not None and args.tap_y is not None:
-            tap_pt = (args.tap_x, args.tap_y)
-        else:
-            w, h = dev.frame_size
-            tap_pt = (w // 2, h // 2)
-
-        if enter_main_city(dev, matcher, actions, tpl, roi, tap_pt,
-                           settle=args.city_settle,
-                           tap_gap=args.city_tap_gap,
-                           max_taps=args.city_max_taps,
-                           timeout=args.city_timeout,
-                           black_ratio=args.city_black_ratio,
-                           black_hold=args.city_black_hold):
-            print(f"\n[OK] 已进入主城, 可以跑任务脚本了 (serial: {serial})")
-        else:
-            sys.exit(1)
 
 
 if __name__ == "__main__":
