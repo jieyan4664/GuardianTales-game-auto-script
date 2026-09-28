@@ -10,8 +10,14 @@ device:
   rotate: 0
   # B 服包名 (坎特伯雷公主与骑士 · B站代理)
   game_package: com.bilibili.snake
-  # 主城界面 Activity (am start -n 目标)
-  game_activity: .MainActivity
+  # 入口 Activity (am start -n 的目标)
+  # 注意: .MainActivity 【不是】可导出的入口, 直接用它会报:
+  #       SecurityException: Permission Denial: starting Intent {...MainActivity}
+  #       ... not exported from uid 10071
+  #       真正的 LAUNCHER 是 .PermissionActivity —— 用下面这条查出来的:
+  #         python tools/grab.py --resolve-activity com.bilibili.snake
+  #       (严禁手改回 .MainActivity)
+  game_activity: .PermissionActivity
 
 # 截图源. 当前用雷电模拟器 (LDPlayer), 它走标准 Android SurfaceFlinger,
 # 游戏画面会进 framebuffer, 因此 adb screencap 可直接拿到游戏画面 ——

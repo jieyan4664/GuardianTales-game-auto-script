@@ -413,6 +413,9 @@ def main() -> None:
                         help="挑战第几个对手卡片 (1/2/3, 默认第 3 个)")
     parser.add_argument("--wait-dialog", type=float, default=1.2,
                         help="点卡片战斗按钮后等待弹窗出现的秒数")
+    parser.add_argument("--card-retry", type=int, default=3,
+                        help="点卡片战斗按钮后没弹出确认框时, 点空白区关掉残留弹窗"
+                             "并重试的次数 (应对周结算等挡住卡片的弹窗)")
     parser.add_argument("--battle-timeout", type=float, default=120.0,
                         help="等待战斗 HUD 消失(打完)的超时秒数; "
                              "要给足余量, 超时后会去按返回键, 战斗未结束时会误伤")
@@ -535,6 +538,8 @@ def main() -> None:
     # 机制: 进角斗场后, 若此前被其它玩家挑战过, 会先弹出战斗信息页盖住底层.
     # 判断: 用 colosseum_defense 模板看"防御"按钮是否可见; 不可见 = 被遮挡.
     close_roi = coords.box("close_area", "pvp_popup")
+    # 关弹窗用的空白区中心点 (战斗信息弹窗 / 周结算弹窗等, 都点它关闭)
+    blank_pt = coords.center("close_area", "pvp_popup")
     try:
         defense_visible = matcher.exists(
             device.screencap(), "colosseum_defense")
@@ -605,16 +610,38 @@ def main() -> None:
                 black_threshold=args.black_threshold,
             )
 
-            # (b) 点第 N 张卡的"战斗"按钮 (坐标)
-            log.info("点第 %d 张卡战斗按钮 %s", args.opponent, card_pt)
-            actions.tap_point(card_pt[0], card_pt[1])
-            time.sleep(args.wait_dialog)
+            # (b)(c) 点第 N 张卡的"战斗" → 点弹窗里的"战斗"
+            #   为什么要有重试: 进角斗场时可能弹出【周结算奖励】之类的弹窗,
+            #   它盖住卡片列表、却【不一定】盖住"防御"按钮 —— 于是上面 (a) 的
+            #   dismiss_to_list 会误判成"已回到列表", 点卡片战斗按钮就点到了
+            #   弹窗上, 确认框自然不出现.
+            #   所以这里以"确认框有没有弹出来"为准: 没弹出就当作被挡住,
+            #   点空白区关掉残留弹窗后重试.
+            hit = None
+            for attempt in range(1, args.card_retry + 1):
+                log.info("点第 %d 张卡战斗按钮 %s (尝试 %d/%d)",
+                         args.opponent, card_pt, attempt, args.card_retry)
+                actions.tap_point(card_pt[0], card_pt[1])
+                time.sleep(args.wait_dialog)
 
-            # (c) 点弹窗里的"战斗" (图片方式)
-            frame = Frame(device.screencap())
-            hit = actions.tap(frame, "colosseum_popup_battle")
-            if not hit.success:
-                log.warning("未匹配到弹窗战斗按钮 colosseum_popup_battle, 中止")
+                frame = Frame(device.screencap())
+                hit = actions.tap(frame, "colosseum_popup_battle")
+                if hit.success:
+                    break
+
+                log.warning("未匹配到弹窗战斗按钮 [%s] → 疑似被弹窗挡住",
+                            "colosseum_popup_battle")
+                if attempt == args.card_retry:
+                    break
+                if blank_pt:
+                    log.info("点空白区 %s 关闭残留弹窗", blank_pt)
+                    actions.tap_point(*blank_pt, wait=args.wait_dismiss)
+                else:
+                    log.warning("pvp_popup.close_area 未采集, 无法关残留弹窗")
+
+            if not hit or not hit.success:
+                log.error("重试 %d 次仍未点出战斗确认框 → 中止 (避免乱点)",
+                          args.card_retry)
                 break
 
             # (d) 等战斗结束

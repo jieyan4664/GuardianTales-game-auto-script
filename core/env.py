@@ -138,6 +138,23 @@ def _mumu_dirs() -> list[Path]:
     return found
 
 
+def find_ldconsole() -> str | None:
+    """定位雷电的命令行工具 ldconsole.exe (在安装目录内).
+
+    为什么要用它, 而不是直接拉起/结束进程:
+      雷电官方提供了 ldconsole.exe 做实例管理 (list2 列实例 / launch 启动 /
+      quit 退出 / runapp 拉起应用), 属于"干净启动 / 干净退出".
+      直接去拉 Ld9BoxHeadless.exe 或结束进程都是越权操作: 容易起错实例、
+      留下脏状态, 而且拿不到实例与端口的对应关系.
+    """
+    for d in _mumu_dirs():
+        for name in ("ldconsole.exe", "dnconsole.exe"):
+            cand = d / name
+            if cand.is_file():
+                return str(cand)
+    return None
+
+
 def find_adb() -> str | None:
     """定位 adb.exe: 模拟器自带 → PATH → 深度搜索.
 
